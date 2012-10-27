@@ -8,17 +8,22 @@ dudespeed = 0.01
 TAU = Math.PI * 2
 
 tileSize = 50
-moveDelay = 1000
+moveDelay = 500
 
 # in tiles.
 sx = 0
 sy = 0
+
+sw = Math.ceil canvas.width / tileSize
+sh = Math.ceil canvas.height / tileSize
 
 # map[[x,y]] = 'meat', 'flower' or null/undefined.
 map = {}
 
 meat = {x:0, y:0, dx:1, dy:0}
 dude = {x:10, y:10, angle:0}
+
+flowers = []
 
 now = prev = lastMovementFrame = Date.now()
 
@@ -37,19 +42,36 @@ update = (dt) ->
 
 
 draw = ->
-  ctx.fillStyle = 'rgb(215,232,148)'
+  ctx.fillStyle = 'white'
   ctx.fillRect 0, 0, canvas.width, canvas.height
   
+  ctx.save()
+  ctx.translate -sx * tileSize, -sy * tileSize
 
+  for tx in [sx..sx+sw]
+    for ty in [sy..sy+sh]
+      thing = map[[tx,ty]]
+      switch thing
+        when 'meat'
+          ctx.fillStyle = '#800000'
+          ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
+
+
+  # Draw meat player
   ctx.fillStyle = 'red'
-  ctx.fillRect (meat.x - sx) * tileSize, (meat.y - sy) * tileSize, tileSize, tileSize
+  ctx.fillRect meat.x * tileSize, meat.y * tileSize, tileSize, tileSize
 
   ctx.fillStyle = 'black'
-  ctx.fillRect (meat.x - sx + 0.3 + meat.dx * 0.4) * tileSize,
-    (meat.y - sy + 0.3 + meat.dy * 0.4) * tileSize, tileSize * 0.4, tileSize * 0.4
+  ctx.fillRect (meat.x + 0.3 + meat.dx * 0.4) * tileSize,
+    (meat.y + 0.3 + meat.dy * 0.4) * tileSize, tileSize * 0.4, tileSize * 0.4
 
+  # draw dude
   ctx.fillStyle = 'blue'
-  ctx.fillRect (dude.x - sx) * tileSize, (dude.y - sy) * tileSize, tileSize/2, tileSize/2
+  ctx.fillRect dude.x * tileSize, dude.y * tileSize, tileSize/2, tileSize/2
+
+
+  ctx.restore()
+
 
 requestAnimationFrame = window.requestAnimationFrame or window.mozRequestAnimationFrame or
                         window.webkitRequestAnimationFrame or window.msRequestAnimationFrame
