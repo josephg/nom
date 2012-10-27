@@ -4,6 +4,7 @@ canvas.height = 768
 ctx = canvas.getContext '2d'
 
 dudespeed = 0.005
+dudeturnspeed = 0.1
 
 TAU = Math.PI * 2
 
@@ -63,7 +64,16 @@ update = (dt) ->
             if meat.ammo
               map[[meat.x, meat.y]] = 'meat'
               meat.ammo--
-
+             
+  if dude.x > sw - 1
+    dude.x = sw - 1
+  else if dude.x < 0
+    dude.x = 0
+  if dude.y > sh - 1
+    dude.y = sh - 1
+  else if dude.y < 0
+    dude.y = 0
+    
   dude.x += dudespeed * dt * Math.cos dude.angle
   dude.y += dudespeed * dt * Math.sin dude.angle
 
