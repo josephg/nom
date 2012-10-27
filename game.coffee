@@ -3,14 +3,12 @@ canvas.width = 1024
 canvas.height = 768
 ctx = canvas.getContext '2d'
 
-dudespeed = 0.005
-dudeturnspeed = 0.1
-
 TAU = Math.PI * 2
 
 mx = my = 0
-tileSize = 50
-moveDelay = 200
+tileSize = 64
+moveDelay = 0.004
+eatDelay = 5000
 
 # in tiles.
 sx = 0
@@ -23,11 +21,11 @@ sh = Math.ceil canvas.height / tileSize
 
 map = {}
 
-maxMeatAmmo = 30
-maxFlowerAmmo = 3
+dudeSpeed = 0.002
+dudeReload = 2000
 
-meat = {x:0, y:0, dx:0, dy:0, ammo:maxMeatAmmo}
-dude = {x:10.5, y:10.5, angle:0, ammo:maxFlowerAmmo}
+meat = {x:0, y:0, dx:0, dy:0, land:0}
+dude = {x:canvas.width / tileSize - 0.5, y:canvas.height / tileSize - 0.5, angle:0, reload:0, land:0}
 
 #map[[meat.x, meat.y]] = ['meat',1]
 
@@ -38,17 +36,6 @@ dist2 = (a, b) ->
 
 within = (a, b, dist) ->
   dist2(a, b) < dist * dist
-
-
-map[[10, 0]] = ['meatspawn']
-map[[18, 5]] = ['meatspawn']
-map[[0, 9]] = ['flowerspawn']
-map[[10, 14]] = ['flowerspawn']
-maxlevel = 5
-
-for x in [6..8]
-  for y in [6..8]
-    map[[x,y]] = ['grass',1]
 
 flowers = []
 
@@ -61,73 +48,67 @@ dudePos = (x = dude.x, y = dude.y) -> [Math.floor(x), Math.floor(y)]
 placeMeat = ->
   thing = map[[meat.x, meat.y]]
 
-  switch thing?[0]
-    when 'meatspawn'
-      meat.ammo = maxMeatAmmo
-
-    when 'meat'
-      if meat.ammo and thing[1] < maxlevel and meat.place
-        thing[1]++
-        meat.ammo--
-        for tx in [meat.x - 1 .. meat.x + 1]
-          for ty in [meat.y - 1 .. meat.y + 1]
-            t = map[[tx,ty]]
-            if t and t[0] is 'grass' and t[1] < thing[1]
-              delete map[[tx,ty]]
-
-    when undefined
-      if meat.ammo and meat.place
-        map[[meat.x, meat.y]] = ['meat',1]
-        meat.ammo--
-
-
+  if !thing
+    map[[meat.x, meat.y]] = ['meat', now]
+    meat.land++
+  else if thing[0] is 'meat'
+    thing[1] = now
+  
 update = (dt) ->
-  #console.log dt
-  if now - lastMovementFrame > moveDelay
-    lastMovementFrame += moveDelay
+  meatspeed = moveDelay + meat.land * 0.00007
+  if now - lastMovementFrame > 1 / meatspeed
+    #console.log meat.land, dude.land
+    lastMovementFrame += 1/meatspeed
 
     newx = meat.x + meat.dx
     newy = meat.y + meat.dy
 
     if 0 <= meat.x + meat.dx < sw and 0 <= meat.y + meat.dy < sh and
-      map[[newx, newy]]?[0] not in ['grass', 'flowerspawn']
+      map[[newx, newy]]?[0] isnt 'grass'
         meat.x = newx
         meat.y = newy
 
         placeMeat()
+
+    for tx in [meat.x - 1 .. meat.x + 1]
+      for ty in [meat.y - 1 .. meat.y + 1]
+        t = map[[tx,ty]]
+        if t and t[0] is 'grass' and now - t[1] > eatDelay
+          dude.land--
+          delete map[[tx,ty]]
+
+
            
   dude.angle = Math.atan2 my - dude.y * tileSize, mx - dude.x * tileSize
   if dude.move and not within({x:mx/tileSize, y:my/tileSize}, dude, 0.4)
-    newx = clamp (dude.x + dudespeed * dt * Math.cos dude.angle), 0, sw
-    newy = clamp (dude.y + dudespeed * dt * Math.sin dude.angle), 0, sh
+    s = dudeSpeed + dude.land * 0.00007
+
+    newx = clamp (dude.x + s * dt * Math.cos dude.angle), 0, sw
+    newy = clamp (dude.y + s * dt * Math.sin dude.angle), 0, sh
 
     if map[dudePos(newx, newy)]?[0] isnt 'meat'
       dude.x = newx
       dude.y = newy
-
-      if map[dudePos()]?[0] is 'flowerspawn'
-        dude.ammo = maxFlowerAmmo
   
   newf = []
   for f in flowers
     if f.t < now
-      # aslpode!
+      if map[[f.p[0], f.p[1]]]?[0] is 'meat'
+        console.log 'asdf'
+        meat.land--
+        delete map[[f.p[0],f.p[1]]]
       for tx in [f.p[0] - 1 .. f.p[0] + 1]
         for ty in [f.p[1] - 1 .. f.p[1] + 1]
           thing = map[[tx, ty]]
-          switch thing?[0]
-            when 'flower'
-              map[[tx,ty]] = ['grass', 1]
-            when 'grass'
-              thing[1]++ if thing[1] < maxlevel
-              for x in [tx - 1 .. tx + 1]
-                for y in [ty - 1 .. ty + 1]
-                  t = map[[x,y]]
-                  console.log t
-                  if t and t[0] is 'meat' and t[1] < thing[1]
-                    delete map[[x,y]]
-            when undefined
-              map[[tx,ty]] = ['grass', 1]
+          if !thing or thing[0] is 'grass'
+            if !thing then dude.land++
+            map[[tx,ty]] = ['grass', now]
+            for x in [tx - 1 .. tx + 1]
+              for y in [ty - 1 .. ty + 1]
+                t = map[[x,y]]
+                if t and t[0] is 'meat'
+                  meat.land--
+                  delete map[[x,y]]
 
     else
       newf.push f
@@ -146,23 +127,13 @@ draw = ->
       thing = map[[tx,ty]]
       switch thing?[0]
         when 'meat'
-          meatcolors = ["#800000", "#a00000", "#b00000", "#c00000", "#d00000"]
-          ctx.fillStyle = meatcolors[thing[1] - 1]
+          colors = ["#800000", "#a00000", "#b00000", "#c00000", "#d00000"]
+          ctx.fillStyle = colors[4 - Math.min 4, Math.floor((now - thing[1]) / 1000)]
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
         when 'grass'
-          grasscolors = ["#008000", "#00a000", "#00b000", "#00c000", "#00d000"]
-          ctx.fillStyle = grasscolors[thing[1] - 1]
+          colors = ["#008000", "#00a000", "#00b000", "#00c000", "#00d000"]
+          ctx.fillStyle = colors[4 - Math.min 4, Math.floor((now - thing[1]) / 1000)]
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
-        when 'meatspawn'
-          ctx.fillStyle = '#800000'
-          ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
-          ctx.fillStyle = 'grey'
-          ctx.fillRect (tx + 0.3) * tileSize, (ty + 0.3) * tileSize, tileSize * 0.4, tileSize * 0.4
-        when 'flowerspawn'
-          ctx.fillStyle = '#008000'
-          ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
-          ctx.fillStyle = '#0f0'
-          ctx.fillRect (tx + 0.3) * tileSize, (ty + 0.3) * tileSize, tileSize * 0.4, tileSize * 0.4
 
   # flowers
   ctx.fillStyle = '#afaf00'
@@ -178,8 +149,8 @@ draw = ->
   # Draw meat player
   ctx.fillStyle = 'red'
   ctx.fillRect meat.x * tileSize, meat.y * tileSize, tileSize, tileSize
-  ctx.fillStyle = 'grey'
-  ctx.fillRect meat.x * tileSize, meat.y * tileSize, tileSize, tileSize * (1 - meat.ammo / maxMeatAmmo)
+  #ctx.fillStyle = 'grey'
+  #ctx.fillRect meat.x * tileSize, meat.y * tileSize, tileSize, tileSize * (1 - meat.ammo / maxMeatAmmo)
 
   ctx.fillStyle = 'black'
   ctx.fillRect (meat.x + 0.3 + meat.dx * 0.4) * tileSize,
@@ -189,8 +160,10 @@ draw = ->
   ctx.save()
   ctx.translate dude.x * tileSize, dude.y * tileSize
   ctx.rotate dude.angle
-  ctx.fillStyle = 'blue'
+  ctx.fillStyle = if dude.reload < now - dudeReload then 'blue' else 'black'
   ctx.fillRect -10, -10, 20, 20
+  ctx.fillStyle = 'black'
+  ctx.fillRect -2, -2, 20, 4
   #ctx.fillRect -tileSize/4, -tileSize/4, tileSize/2, tileSize/2
   ctx.restore()
   ctx.restore()
@@ -219,7 +192,7 @@ document.onmousemove = (e) ->
 pressed = {left:0, right:0, up:0, down:0}
 updateD = ->
   meat.dx = pressed.left + pressed.right
-  meat.dy = pressed.up + pressed.down
+  meat.dy = if meat.dx then 0 else pressed.up + pressed.down
  
 document.onkeydown = (e) ->
   pressed.left = -1 if e.keyCode is 37 # left
@@ -228,19 +201,14 @@ document.onkeydown = (e) ->
   pressed.down = 1 if e.keyCode is 40 # down
   updateD()
 
-  if e.keyCode is 16
-    meat.place = true
-    placeMeat()
-  
   dude.move = true if e.keyCode is 'W'.charCodeAt 0
 
-
-  if e.keyCode is 32 and dude.ammo #and map[[Math.floor(dude.x),Math.floor(dude.y)]]?[0]
+  if e.keyCode is 32 and dude.reload < now - dudeReload
     # Plant flower.
     #flowers.push
-    dude.ammo--
-    pos = [Math.floor(dude.x), Math.floor(dude.y)]
     if map[pos]?[0] not in ['meat']
+      dude.reload = now
+      pos = [Math.floor(dude.x), Math.floor(dude.y)]
       #map[pos] = ['flower', 0]
       flowers.push {p:pos, t:now + 2000}
   
@@ -252,4 +220,3 @@ document.onkeyup = (e) ->
   updateD()
 
   dude.move = false if e.keyCode is 'W'.charCodeAt 0
-  meat.place = false if e.keyCode is 16
