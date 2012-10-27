@@ -20,10 +20,14 @@ sh = Math.ceil canvas.height / tileSize
 # map[[x,y]] = 'meat', 'grass' or null/undefined.
 map = {}
 
-meat = {x:0, y:0, dx:1, dy:0}
-dude = {x:10, y:10, angle:0}
+meat = {x:0, y:0, dx:1, dy:0, ammo:5}
+dude = {x:10, y:10, angle:0, ammo:2}
 
 map[[meat.x, meat.y]] = 'meat'
+
+
+map[[10, 0]] = 'meatspawn'
+
 
 for x in [6..8]
   for y in [6..8]
@@ -43,10 +47,19 @@ update = (dt) ->
     if 0 <= meat.x + meat.dx < sw and
       0 <= meat.y + meat.dy < sh and
       map[[newx, newy]] not in ['grass', 'flowerspawn']
-        meat.x += meat.dx
-        meat.y += meat.dy
+        meat.x = newx
+        meat.y = newy
 
-    map[[meat.x, meat.y]] = 'meat'
+        thing = map[[meat.x, meat.y]]
+
+        switch thing
+          when 'meatspawn'
+            meat.ammo = 5
+
+          when undefined
+            if meat.ammo
+              map[[meat.x, meat.y]] = 'meat'
+              meat.ammo--
 
   dude.x += dudespeed * dt * Math.cos dude.angle
   dude.y += dudespeed * dt * Math.sin dude.angle
@@ -70,6 +83,12 @@ draw = ->
         when 'grass'
           ctx.fillStyle = '#008000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
+        when 'meatspawn'
+          ctx.fillStyle = '#800000'
+          ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
+          ctx.fillStyle = 'grey'
+          ctx.fillRect (tx + 0.3) * tileSize, (ty + 0.3) * tileSize, tileSize * 0.4, tileSize * 0.4
+
 
 
   # Draw meat player
