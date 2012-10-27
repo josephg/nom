@@ -37,11 +37,10 @@ for x in [6..8]
 
 flowers = []
 
-flowers = []
-
 now = prev = lastMovementFrame = Date.now()
 
 update = (dt) ->
+  #console.log dt
   if now - lastMovementFrame > moveDelay
     lastMovementFrame += moveDelay
 
@@ -64,19 +63,20 @@ update = (dt) ->
             if meat.ammo
               map[[meat.x, meat.y]] = 'meat'
               meat.ammo--
-             
-  if dude.x > sw - 1
-    dude.x = sw - 1
-  else if dude.x < 0
-    dude.x = 0
-  if dude.y > sh - 1
-    dude.y = sh - 1
-  else if dude.y < 0
-    dude.y = 0
-    
-  dude.x += dudespeed * dt * Math.cos dude.angle
-  dude.y += dudespeed * dt * Math.sin dude.angle
+            
+  if dude.move
+    dude.x += dudespeed * dt * Math.cos dude.angle
+    dude.y += dudespeed * dt * Math.sin dude.angle
 
+    if dude.x > sw - 1
+      dude.x = sw - 1
+    else if dude.x < 0
+      dude.x = 0
+    if dude.y > sh - 1
+      dude.y = sh - 1
+    else if dude.y < 0
+      dude.y = 0
+    
 draw = ->
   ctx.fillStyle = 'white'
   ctx.fillRect 0, 0, canvas.width, canvas.height
@@ -94,6 +94,9 @@ draw = ->
         when 'grass'
           ctx.fillStyle = '#008000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
+        when 'flower'
+          ctx.fillStyle = '#008080'
+          ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
         when 'meatspawn'
           ctx.fillStyle = '#800000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
@@ -109,9 +112,13 @@ draw = ->
     (meat.y + 0.3 + meat.dy * 0.4) * tileSize, tileSize * 0.4, tileSize * 0.4
 
   # draw dude
+  ctx.save()
+  ctx.translate (dude.x + 0.5) * tileSize, (dude.y + 0.5) * tileSize
+  ctx.rotate dude.angle
   ctx.fillStyle = 'blue'
-  ctx.fillRect dude.x * tileSize, dude.y * tileSize, tileSize/2, tileSize/2
-
+  ctx.fillRect -tileSize/4, -tileSize/4, tileSize/2, tileSize/2
+  
+  ctx.restore()
 
   ctx.restore()
 
@@ -137,13 +144,17 @@ keys =
   right: [39, 'D'.charCodeAt(0)]
   down: [40, 'S'.charCodeAt(0)]
 
+canvas.onmousemove = (e) ->
+  #console.log e.offsetY, e.offsetX
+  dude.angle = Math.atan2 e.offsetY - dude.y * tileSize, e.offsetX - dude.x * tileSize
+  
 document.onkeydown = (e) ->
   [meat.dx, meat.dy] = [-1, 0] if e.keyCode is 37 # left
   [meat.dx, meat.dy] = [ 1, 0] if e.keyCode is 39 # right
   [meat.dx, meat.dy] = [0, -1] if e.keyCode is 38 # up
   [meat.dx, meat.dy] = [0,  1] if e.keyCode is 40 # down
-  [dude.angle] = [Math.PI] if e.keyCode is 65 # Dude Left
-  [dude.angle] = [0] if e.keyCode is 68 # Dude Right
-  [dude.angle] = [-Math.PI / 2] if e.keyCode is 87 # Dude Up
-  [dude.angle] = [Math.PI / 2] if e.keyCode is 83 # Dude Down
-
+  
+  dude.move = true if e.keyCode is 32
+  
+document.onkeyup = (e) ->
+  dude.move = false if e.keyCode is 32
