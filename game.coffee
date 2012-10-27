@@ -8,7 +8,10 @@ TAU = Math.PI * 2
 mx = my = 0
 tileSize = 64
 moveDelay = 0.004
-eatDelay = 5000
+
+meatDecay = 2000
+grassDecay = 5000
+
 
 # in tiles.
 sx = 0
@@ -22,7 +25,7 @@ sh = Math.ceil canvas.height / tileSize
 map = {}
 
 dudeSpeed = 0.002
-dudeReload = 2000
+dudeReload = -> 1 / (0.001 + dude.land * 0.00001)
 
 meat = {x:0, y:0, dx:0, dy:0, land:0}
 dude = {x:canvas.width / tileSize - 0.5, y:canvas.height / tileSize - 0.5, angle:0, reload:0, land:0}
@@ -63,22 +66,18 @@ update = (dt) ->
     newx = meat.x + meat.dx
     newy = meat.y + meat.dy
 
+    newThing = map[[newx, newy]]
     if 0 <= meat.x + meat.dx < sw and 0 <= meat.y + meat.dy < sh and
-      map[[newx, newy]]?[0] isnt 'grass'
+      (!newThing or newThing[0] isnt 'grass' or now - newThing[1] > grassDecay)
+        if newThing?[0] is 'grass'
+          delete map[[newx, newy]]
+          dude.land--
+
         meat.x = newx
         meat.y = newy
 
         placeMeat()
 
-    for tx in [meat.x - 1 .. meat.x + 1]
-      for ty in [meat.y - 1 .. meat.y + 1]
-        t = map[[tx,ty]]
-        if t and t[0] is 'grass' and now - t[1] > eatDelay
-          dude.land--
-          delete map[[tx,ty]]
-
-
-           
   dude.angle = Math.atan2 my - dude.y * tileSize, mx - dude.x * tileSize
   if dude.move and not within({x:mx/tileSize, y:my/tileSize}, dude, 0.4)
     s = dudeSpeed + dude.land * 0.00007
@@ -89,7 +88,16 @@ update = (dt) ->
     if map[dudePos(newx, newy)]?[0] isnt 'meat'
       dude.x = newx
       dude.y = newy
-  
+
+  if dude.firing and dude.reload < now - dudeReload()
+    # Plant flower.
+    #flowers.push
+    if map[pos]?[0] not in ['meat']
+      dude.reload = now
+      pos = [Math.floor(dude.x), Math.floor(dude.y)]
+      #map[pos] = ['flower', 0]
+      flowers.push {p:pos, t:now + 1500}
+
   newf = []
   for f in flowers
     if f.t < now
@@ -100,15 +108,13 @@ update = (dt) ->
       for tx in [f.p[0] - 1 .. f.p[0] + 1]
         for ty in [f.p[1] - 1 .. f.p[1] + 1]
           thing = map[[tx, ty]]
+          if thing and thing[0] is 'meat' and now - thing[1] > meatDecay
+            meat.land--
+            delete map[[tx,ty]]
+            thing = null
           if !thing or thing[0] is 'grass'
             if !thing then dude.land++
             map[[tx,ty]] = ['grass', now]
-            for x in [tx - 1 .. tx + 1]
-              for y in [ty - 1 .. ty + 1]
-                t = map[[x,y]]
-                if t and t[0] is 'meat'
-                  meat.land--
-                  delete map[[x,y]]
 
     else
       newf.push f
@@ -128,7 +134,7 @@ draw = ->
       switch thing?[0]
         when 'meat'
           colors = ["#800000", "#a00000", "#b00000", "#c00000", "#d00000"]
-          ctx.fillStyle = colors[4 - Math.min 4, Math.floor((now - thing[1]) / 1000)]
+          ctx.fillStyle = colors[4 - Math.min 4, Math.floor((now - thing[1]) / 400)]
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
         when 'grass'
           colors = ["#008000", "#00a000", "#00b000", "#00c000", "#00d000"]
@@ -160,7 +166,7 @@ draw = ->
   ctx.save()
   ctx.translate dude.x * tileSize, dude.y * tileSize
   ctx.rotate dude.angle
-  ctx.fillStyle = if dude.reload < now - dudeReload then 'blue' else 'black'
+  ctx.fillStyle = if dude.reload < now - dudeReload() then 'blue' else 'black'
   ctx.fillRect -10, -10, 20, 20
   ctx.fillStyle = 'black'
   ctx.fillRect -2, -2, 20, 4
@@ -202,16 +208,8 @@ document.onkeydown = (e) ->
   updateD()
 
   dude.move = true if e.keyCode is 'W'.charCodeAt 0
+  dude.firing = true if e.keyCode is 32
 
-  if e.keyCode is 32 and dude.reload < now - dudeReload
-    # Plant flower.
-    #flowers.push
-    if map[pos]?[0] not in ['meat']
-      dude.reload = now
-      pos = [Math.floor(dude.x), Math.floor(dude.y)]
-      #map[pos] = ['flower', 0]
-      flowers.push {p:pos, t:now + 2000}
-  
 document.onkeyup = (e) ->
   pressed.left = 0 if e.keyCode is 37 # left
   pressed.right = 0 if e.keyCode is 39 # right
@@ -220,3 +218,4 @@ document.onkeyup = (e) ->
   updateD()
 
   dude.move = false if e.keyCode is 'W'.charCodeAt 0
+  dude.firing = false if e.keyCode is 32
