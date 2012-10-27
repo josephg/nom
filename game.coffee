@@ -8,6 +8,7 @@ dudeturnspeed = 0.1
 
 TAU = Math.PI * 2
 
+mx = my = 0
 tileSize = 50
 moveDelay = 200
 
@@ -23,9 +24,17 @@ sh = Math.ceil canvas.height / tileSize
 map = {}
 
 meat = {x:0, y:0, dx:1, dy:0, ammo:10}
-dude = {x:10, y:10, angle:0, ammo:2}
+dude = {x:10.5, y:10.5, angle:0, ammo:2}
 
 map[[meat.x, meat.y]] = ['meat',1]
+
+dist2 = (a, b) ->
+  dx = a.x - b.x
+  dy = a.y - b.y
+  dx * dx + dy * dy
+
+within = (a, b, dist) ->
+  dist2(a, b) < dist * dist
 
 
 map[[10, 0]] = ['meatspawn']
@@ -38,6 +47,10 @@ for x in [6..8]
 flowers = []
 
 now = prev = lastMovementFrame = Date.now()
+
+clamp = (x, min, max) -> Math.min(Math.max(x, min), max)
+
+dudePos = (x = dude.x, y = dude.y) -> [Math.floor(x), Math.floor(y)]
 
 update = (dt) ->
   #console.log dt
@@ -75,25 +88,21 @@ update = (dt) ->
               map[[meat.x, meat.y]] = ['meat',1]
               meat.ammo--
             
-  if dude.move
-    dude.x += dudespeed * dt * Math.cos dude.angle
-    dude.y += dudespeed * dt * Math.sin dude.angle
+  dude.angle = Math.atan2 my - dude.y * tileSize, mx - dude.x * tileSize
+  if dude.move and not within({x:mx/tileSize, y:my/tileSize}, dude, 0.4)
+    newx = clamp (dude.x + dudespeed * dt * Math.cos dude.angle), 0, sw
+    newy = clamp (dude.y + dudespeed * dt * Math.sin dude.angle), 0, sh
 
-    if dude.x > sw - 1
-      dude.x = sw - 1
-    else if dude.x < 0
-      dude.x = 0
-    if dude.y > sh - 1
-      dude.y = sh - 1
-    else if dude.y < 0
-      dude.y = 0
+    if map[dudePos(newx, newy)]?[0] isnt 'meat'
+      dude.x = newx
+      dude.y = newy
     
 draw = ->
   ctx.fillStyle = 'white'
   ctx.fillRect 0, 0, canvas.width, canvas.height
   
   ctx.save()
-  ctx.translate -sx * tileSize, -sy * tileSize
+  #ctx.translate -sx * tileSize, -sy * tileSize
 
   for tx in [sx..sx+sw]
     for ty in [sy..sy+sh]
@@ -107,13 +116,19 @@ draw = ->
           ctx.fillStyle = '#008000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
         when 'flower'
-          ctx.fillStyle = '#008080'
+          ctx.fillStyle = '#afaf00'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
         when 'meatspawn'
           ctx.fillStyle = '#800000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
           ctx.fillStyle = 'grey'
           ctx.fillRect (tx + 0.3) * tileSize, (ty + 0.3) * tileSize, tileSize * 0.4, tileSize * 0.4
+
+  # border around dude
+
+  ctx.strokeStyle = 'black'
+  ctx.strokeRect Math.floor(dude.x) * tileSize, Math.floor(dude.y) * tileSize, tileSize, tileSize
+
 
   # Draw meat player
   ctx.fillStyle = 'red'
@@ -127,13 +142,12 @@ draw = ->
 
   # draw dude
   ctx.save()
-  ctx.translate (dude.x + 0.5) * tileSize, (dude.y + 0.5) * tileSize
+  ctx.translate dude.x * tileSize, dude.y * tileSize
   ctx.rotate dude.angle
   ctx.fillStyle = 'blue'
-  ctx.fillRect -tileSize/4, -tileSize/4, tileSize/2, tileSize/2
-  
+  ctx.fillRect -10, -10, 20, 20
+  #ctx.fillRect -tileSize/4, -tileSize/4, tileSize/2, tileSize/2
   ctx.restore()
-
   ctx.restore()
 
 
@@ -160,7 +174,8 @@ keys =
 
 canvas.onmousemove = (e) ->
   #console.log e.offsetY, e.offsetX
-  dude.angle = Math.atan2 e.offsetY - dude.y * tileSize, e.offsetX - dude.x * tileSize
+  mx = e.pageX - canvas.offsetLeft
+  my = e.pageY - canvas.offsetTop
   
 document.onkeydown = (e) ->
   [meat.dx, meat.dy] = [-1, 0] if e.keyCode is 37 # left
@@ -168,7 +183,16 @@ document.onkeydown = (e) ->
   [meat.dx, meat.dy] = [0, -1] if e.keyCode is 38 # up
   [meat.dx, meat.dy] = [0,  1] if e.keyCode is 40 # down
   
-  dude.move = true if e.keyCode is 32
+  dude.move = true if e.keyCode is 'W'.charCodeAt 0
+
+
+  if e.keyCode is 32 and dude.ammo #and map[[Math.floor(dude.x),Math.floor(dude.y)]]?[0]
+    # Plant flower.
+    #flowers.push
+    pos = [Math.floor(dude.x), Math.floor(dude.y)]
+    if map[pos]?[0] not in ['meat']
+      map[pos] = ['flower', 0]
+      flowers.push {p:pos, t:now}
   
 document.onkeyup = (e) ->
-  dude.move = false if e.keyCode is 32
+  dude.move = false if e.keyCode is 'W'.charCodeAt 0
