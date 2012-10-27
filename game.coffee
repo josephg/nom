@@ -24,15 +24,15 @@ map = {}
 meat = {x:0, y:0, dx:1, dy:0, ammo:5}
 dude = {x:10, y:10, angle:0, ammo:2}
 
-map[[meat.x, meat.y]] = 'meat'
+map[[meat.x, meat.y]] = ['meat',1]
 
 
-map[[10, 0]] = 'meatspawn'
+map[[10, 0]] = ['meatspawn']
 
 
 for x in [6..8]
   for y in [6..8]
-    map[[x,y]] = 'grass'
+    map[[x,y]] = ['grass',1]
 
 flowers = []
 
@@ -49,19 +49,20 @@ update = (dt) ->
 
     if 0 <= meat.x + meat.dx < sw and
       0 <= meat.y + meat.dy < sh and
-      map[[newx, newy]] not in ['grass', 'flowerspawn']
+      map[[newx, newy]]?[0] not in ['grass', 'flowerspawn']
         meat.x = newx
         meat.y = newy
 
         thing = map[[meat.x, meat.y]]
 
-        switch thing
+        switch thing?[0]
           when 'meatspawn'
+            console.log 'meaat'
             meat.ammo = 5
 
           when undefined
             if meat.ammo
-              map[[meat.x, meat.y]] = 'meat'
+              map[[meat.x, meat.y]] = ['meat',1]
               meat.ammo--
 
   dude.x += dudespeed * dt * Math.cos dude.angle
@@ -77,7 +78,7 @@ draw = ->
   for tx in [sx..sx+sw]
     for ty in [sy..sy+sh]
       thing = map[[tx,ty]]
-      switch thing
+      switch thing?[0]
         when 'meat'
           ctx.fillStyle = '#800000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
