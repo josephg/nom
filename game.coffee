@@ -8,7 +8,7 @@ dudespeed = 0.005
 TAU = Math.PI * 2
 
 tileSize = 50
-moveDelay = 500
+moveDelay = 200
 
 # in tiles.
 sx = 0
@@ -21,14 +21,14 @@ sh = Math.ceil canvas.height / tileSize
 
 map = {}
 
-meat = {x:0, y:0, dx:1, dy:0, ammo:5}
+meat = {x:0, y:0, dx:1, dy:0, ammo:10}
 dude = {x:10, y:10, angle:0, ammo:2}
 
 map[[meat.x, meat.y]] = ['meat',1]
 
 
 map[[10, 0]] = ['meatspawn']
-
+maxlevel = 5
 
 for x in [6..8]
   for y in [6..8]
@@ -58,7 +58,17 @@ update = (dt) ->
         switch thing?[0]
           when 'meatspawn'
             console.log 'meaat'
-            meat.ammo = 5
+            meat.ammo = 10
+
+          when 'meat'
+            if meat.ammo and thing[1] < maxlevel
+              thing[1]++
+              meat.ammo--
+              for tx in [meat.x - 1 .. meat.x + 1]
+                for ty in [meat.y - 1 .. meat.y + 1]
+                  t = map[[tx,ty]]
+                  if t and t[0] is 'grass' and t[1] < thing[1]
+                    map[[tx,ty]] = null
 
           when undefined
             if meat.ammo
@@ -80,7 +90,8 @@ draw = ->
       thing = map[[tx,ty]]
       switch thing?[0]
         when 'meat'
-          ctx.fillStyle = '#800000'
+          meatcolors = ["#800000", "#a00000", "#b00000", "#c00000", "#d00000"]
+          ctx.fillStyle = meatcolors[thing[1] - 1]
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
         when 'grass'
           ctx.fillStyle = '#008000'
