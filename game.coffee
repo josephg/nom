@@ -115,6 +115,8 @@ draw = ->
   # Draw meat player
   ctx.fillStyle = 'red'
   ctx.fillRect meat.x * tileSize, meat.y * tileSize, tileSize, tileSize
+  ctx.fillStyle = 'grey'
+  ctx.fillRect meat.x * tileSize, meat.y * tileSize, tileSize, tileSize * (1 - meat.ammo / 10)
 
   ctx.fillStyle = 'black'
   ctx.fillRect (meat.x + 0.3 + meat.dx * 0.4) * tileSize,
