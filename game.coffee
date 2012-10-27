@@ -17,11 +17,17 @@ sy = 0
 sw = Math.ceil canvas.width / tileSize
 sh = Math.ceil canvas.height / tileSize
 
-# map[[x,y]] = 'meat', 'flower' or null/undefined.
+# map[[x,y]] = 'meat', 'grass' or null/undefined.
 map = {}
 
 meat = {x:0, y:0, dx:1, dy:0}
 dude = {x:10, y:10, angle:0}
+
+map[[meat.x, meat.y]] = 'meat'
+
+for x in [6..8]
+  for y in [6..8]
+    map[[x,y]] = 'grass'
 
 flowers = []
 
@@ -31,8 +37,14 @@ update = (dt) ->
   if now - lastMovementFrame > moveDelay
     lastMovementFrame += moveDelay
 
-    meat.x += meat.dx
-    meat.y += meat.dy
+    newx = meat.x + meat.dx
+    newy = meat.y + meat.dy
+
+    if 0 <= meat.x + meat.dx < sw and
+      0 <= meat.y + meat.dy < sh and
+      map[[newx, newy]] not in ['grass', 'flowerspawn']
+        meat.x += meat.dx
+        meat.y += meat.dy
 
     map[[meat.x, meat.y]] = 'meat'
 
@@ -54,6 +66,9 @@ draw = ->
       switch thing
         when 'meat'
           ctx.fillStyle = '#800000'
+          ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
+        when 'grass'
+          ctx.fillStyle = '#008000'
           ctx.fillRect tx * tileSize, ty * tileSize, tileSize, tileSize
 
 
